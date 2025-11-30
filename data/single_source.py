@@ -1,6 +1,6 @@
 '''Steps:
 1. Generate near-field signal and covariance matrix
-2. Convert complex covariance to real+imag tensor (2×7×7)
+2. Convert complex covariance to real+imag tensor (2×5×5)
 3. LSN predicts number of signals → here expectation: 1 source
 4. LCN reconstructs clean covariance matrix
 5. Apply classical estimator (e.g., MUSIC) OR regression head for DOA (θ, r)
@@ -71,31 +71,45 @@ def generate_sample(SNR_dB, theta=None, r=None, N=N, snapshots=1024, wavelength=
 
     return R_tensor.astype(np.float32), np.array([theta, r], dtype=np.float32)
 
-def generate_dataset(num_samples=num_samples, save=True):
-    X = [] # real+imag covariance tensors
-    Y = [] # labels: (theta, r)
+def generate_dataset(SNR_range=np.arange(-10, 16, 1), 
+                     snapshots=1024, 
+                     samples_per_SNR=1000, 
+                     save=True,
+                     save_path="./dataset.npz"):
 
-    print(f">>> Generating {num_samples} near-field samples...")
+    X, Y = [], []
 
-    for i in range(num_samples):
-        SNR = np.random.choice(SNR_range)
-        R_tensor, label = generate_sample(SNR)
+    total_samples = len(SNR_range) * samples_per_SNR
+    print(f">>> 生成数据集: 总样本数 = {total_samples} ({len(SNR_range)}种SNR，每种{samples_per_SNR}样本)")
+    
+    sample_counter = 0
 
-        X.append(R_tensor)
-        Y.append(label)
+    for snr in SNR_range:
+        print(f"\n📌 SNR = {snr} dB:")
 
-        if (i + 1) % 100 == 0:
-            print(f"   [{i+1}/{num_samples}] samples completed...")
+        for k in range(samples_per_SNR): # 每一种 SNR 生成 samples_per_SNR 个样本
+
+            # 生成一个样本 (生成信号 -> 协方差估计 -> 复数拆分 → tensor)
+            R_tensor, label = generate_sample(snr, snapshots=snapshots)
+
+            X.append(R_tensor)   # shape = (N, N, 2)
+            Y.append(label)      # label = (theta, r)
+
+            sample_counter += 1
+            if sample_counter % 500 == 0:
+                print(f"   已完成 {sample_counter}/{total_samples}")
 
     X = np.array(X)
     Y = np.array(Y)
 
     if save:
         np.savez(save_path, X=X, Y=Y)
-        print(f"\n📁 Dataset saved to: {save_path}")
+        print(f"\n📁 数据集保存成功: {save_path}")
         print(f"   X.shape = {X.shape}, Y.shape = {Y.shape}")
+        # 形状说明: X.shape = (num_samples, N, N, 2), Y.shape = (num_samples, 2)
 
     return X, Y
+
 
 if __name__ == "__main__":
     generate_dataset()

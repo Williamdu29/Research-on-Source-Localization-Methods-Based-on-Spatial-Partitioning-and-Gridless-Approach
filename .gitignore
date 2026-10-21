@@ -1,1 +1,16 @@
-data/single_source.py
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Training artifacts
+*.pth
+*.pt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
